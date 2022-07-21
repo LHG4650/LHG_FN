@@ -2,7 +2,7 @@ from re import L
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-
+import math
 def pred_2_input(pred,mi):
     '''
         yolo의 pred 를 인풋으로 받아
@@ -149,7 +149,59 @@ class Porridge_NN(torch.nn.Module):
     
         return x
         
+def get_item_info(sp_pred, mid):
+    if torch.is_tensor(sp_pred)== 1:
+        sp_pred = sp_pred.cpu().numpy()
+    mid = mid[0],mid[1]
+    sp_midx = (sp_pred[0]+sp_pred[2])/2
+    sp_midy = (sp_pred[1]+sp_pred[3])/2
+    sp_dist = math.dist([sp_midx,sp_midy], mid)
 
+    point_dist_list =[]
+    for i in [sp_pred[0],sp_pred[2]]:
+        for j in [sp_pred[1],sp_pred[3]]:
+            point_dist_list.append(math.dist([i,j],mid))
+       
+    point_dist_list.sort(reverse=True)
+    point_dist_list = point_dist_list[:2]
+
+    sp_w = (sp_pred[2]+sp_pred[0])/2
+    sp_h = (sp_pred[3]+sp_pred[1])/2
+    sp_area = sp_w * sp_h
+
+    sp_info = [sp_dist] + point_dist_list +[sp_w,sp_h,sp_area]
+    #print(sp_info)
+    return sp_info
+
+def pred_to_input(pred,mid):
+
+    sp_count = 0
+    cham_count = 0
+
+    input = []
+    for i in pred:
+        if i[5] == 0:
+            #print(i)
+            input = get_item_info(i,mid)
+            sp = i
+            break
+            
+    for i in pred:
+        if i[5] == 1:
+            if cham_count <3 :
+                cham_count +=1
+                input += get_item_info(i,mid)
+
+    if cham_count == 1:
+        input += get_item_info([0,0,0,0,0,1],mid)
+
+    if cham_count == 0:
+        input += get_item_info([0,0,0,0,0,1],mid)
+        input += get_item_info([0,0,0,0,0,1],mid)
+    
+    input += [mid[0],mid[1]]
+
+    return input
 
 
         
