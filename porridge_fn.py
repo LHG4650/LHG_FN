@@ -3,6 +3,9 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import math
+import numpy as np
+
+
 def pred_2_input(pred,mi):
     '''
         yolo의 pred 를 인풋으로 받아
@@ -133,9 +136,8 @@ def Check_accuracy(x,y,fn):
     print('F1 Score         :',round(F1_Score*100,2),"%")
     print('Precision과 Recall의 조화평균')
 
-
 class Porridge_NN(torch.nn.Module):
-    def __init__(self, input = 50, h1 = 8, h2 = 9, out_put = 2):
+    def __init__(self, input = 20, h1 = 8, h2 = 9, out_put = 2):
         super().__init__()
 
         self.fc1 = nn.Linear(input, h1)
@@ -184,6 +186,7 @@ def pred_to_input(pred,mid):
             #print(i)
             input = get_item_info(i,mid)
             sp = i
+            sp_count +=1
             break
             
     for i in pred:
@@ -198,11 +201,112 @@ def pred_to_input(pred,mid):
     if cham_count == 0:
         input += get_item_info([0,0,0,0,0,1],mid)
         input += get_item_info([0,0,0,0,0,1],mid)
+
+    if sp_count == 0:
+        input += get_item_info([0,0,0,0,0,1],mid)
     
     input += [mid[0],mid[1]]
 
     return input
 
+def red_find_circle_v1(img):
+    #이미지의 원을 찾는 함수
+    #처음 들어오는 이미지는 전처리가 없다는 가정으로 한다.
+    #이미지전처리
+    val = 60
+    alpha = 1.0
+    color = 10
+    range = 10
+    red_mul = 2
+    
+    redNorigin_addWeighted = 150/2
+
+    img_origin = img
+    #print(img_origin.shape)
+    #기본전처리 +60 / clip alpha1 보정
+    addarray = np.full((480,640,3), (val,val,val), dtype= np.uint8)    # val 로 이루어진 도화지 전체적으로 조금 하얗게 하는게 목적
+    
+    #view.set_img('+60 add',copy.deepcopy(addarray)) # 확인후 주석처리
+
+    add_img = cv2.add(img_origin,addarray)
+    #view.set_img('add_img',copy.deepcopy(add_img))# 확인후 주석처리
+
+
+    imgmultiple = np.clip((1+alpha)*add_img - 128*alpha, 0, 255).astype(np.uint8)       #clip 이미지형식 (0~255)를 맞게해줌 / alpha는 rgb배율 1> 2배 
+
+    #view.set_img('clip _alpha1',copy.deepcopy(imgmultiple))# 확인후 주석처리
+
+    #빨강색 범위 *2 하여 빨간색 마스크 영역을 구하는게 목적
+    hsv = cv2.cvtColor(imgmultiple, cv2.COLOR_BGR2HSV)
+    lower_red = np.array([color-range, 30, 30])        # 빨강색 범위
+    upper_red = np.array([color+range, 255, 255])
+    mask2 = cv2.inRange(hsv, lower_red, upper_red)
+    res2 = cv2.bitwise_and(imgmultiple, imgmultiple, mask=mask2)*red_mul      # 여기까지가 빨강색 구하기
+    #res*2
+    #view.set_img('HSV 붉은색 추출',copy.deepcopy(res2))# 확인후 주석처리
+
+    redNclahe = cv2.addWeighted(imgmultiple,float(100) * 0.01, res2,float(redNorigin_addWeighted) * 0.01,0)     #여기까지가 학습에 이용된 그림 imgmultiple + res2 *1.5
+
+    #view.set_img('clip _alpha1 + 불은색 추출',copy.deepcopy(redNclahe))# 확인후 주석처리
+
+    #그레이로 만들고
+    red2gray = copy.deepcopy(res2)
+    red2gray = cv2.cvtColor(red2gray, cv2.COLOR_BGR2GRAY)
+
+    #view.set_img('흑백 변환',copy.deepcopy(red2gray))# 확인후 주석처리
+
+    #가우시안 블러 쓰고
+    red2gray = cv2.GaussianBlur(red2gray,(5,5),0)
+    #view.set_img('가우시안블러',copy.deepcopy(red2gray))# 확인후 주석처리
+
+    #쓰레쉬 홀드로 날리기 흑백마스크만 남기기  흰부분이 레드임
+    res, red2gray = cv2.threshold(red2gray, 40, 255, cv2.THRESH_BINARY)
+    #view.set_img('쓰레쉬홀드',copy.deepcopy(red2gray))# 확인후 주석처리
+
+    #원찾기
+    contours, hierarchy = cv2.findContours(red2gray, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+    right   = [0,0]
+    left    = [640,0]
+    up      = [0,480]
+    down    = [0,0]
+
+    for i in contours:
+        if np.array(i).shape[0] > 200:
+            for k in i:
+                j= k[0]
+                #print(j)
+                if j[0] > right[0]:
+                    right = copy.deepcopy(j)
+                if j[0] < left[0]:
+                    left = copy.deepcopy(j)
+                if j[1] < up[1]:
+                    up = copy.deepcopy(j)
+                if j[1] > down[1]:
+                    down = copy.deepcopy(j)
+    
+    mid = [int((left[0]+right[0])/2),int((up[1]+down[1])/2)]        #가로세로 중심
+
+    radiv = right[0]-left[0]             #가로지름
+    radih = down[1]-up[1]             #세로지름
+    radim = (radih+radiv)/2         #지름평균
+
+    if radim < 0:   #음수 ->원 못찾음 -> 640 최대원으로 만들어줌
+        radim = 640
+
+    #try:
+        #cv2.circle( redNclahe, mid, int(radim/2), (0,255,0),5)      #반지름 넣어야함
+    #except:
+        #print('원못찾음')
+    #view.set_img('radim',origin)
+
+    #addarray = np.full(img_origin.shape, (0,0,0), dtype= np.uint8)      #검은색 도화지
+    #cv2.circle( addarray, mid, int(radim/2), (0,255,0),5)       #도화지에 원 그리기
+    #view.set_img('붉은색원',copy.deepcopy(addarray))# 확인후 주석처리
+    #cv2.circle( redNclahe, mid, int(radim/2), (0,255,0),5)       #도화지에 원 그리기
+    #view.set_img('붉은색원',copy.deepcopy(redNclahe))# 확인후 주석처리
+
+    return redNclahe,  mid, int(radim/2)
 
         
 
