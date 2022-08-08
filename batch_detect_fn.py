@@ -1,9 +1,9 @@
 import cv2
 
 def fh2_img_const_zero_bler(img,cosnt_alpha=10):
-    _, zero = cv2.threshold(img,70,255, cv2.THRESH_TOZERO)
+    #_, img = cv2.threshold(img,70,255, cv2.THRESH_TOZERO)
 
-    lab = cv2.cvtColor(zero, cv2.COLOR_BGR2LAB)
+    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=cosnt_alpha,tileGridSize=(8, 8))
     l = clahe.apply(l)
