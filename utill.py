@@ -1,4 +1,5 @@
 import time
+import os
 
 def time_stamp():
     time_stamp = time.strftime('%y.%m.%d_%H.%M.%S',time.localtime())
@@ -48,3 +49,11 @@ class HG_Progress():
 
         txt = '\r'+progress_txt+ elapse_time_txt +remain_time_txt+pred_time_txt
         print(txt,end="")
+
+def make_dir(path):
+    try:
+        if not os.path.exists(path):
+            os.makedirs(path)
+    except OSError:
+        print("Error: creationg direictory.  "  + path)
+        
