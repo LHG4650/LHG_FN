@@ -1,6 +1,5 @@
 import os
-
-
+from LHG_FN import utill
 
 def yaml_make(folder):
     '''
@@ -20,6 +19,11 @@ def yaml_make(folder):
     #val_dir = "val_images"
     #file_formet = "jpg"
     #class_list2 = ['empty','spoon_in','spoon_out','sesame_out','empty_red','soup_out']
+    utill.make_dir(folder)
+    utill.make_dir(folder+"/train_images")
+    utill.make_dir(folder+"/images")
+    utill.make_dir(folder+"/val_images")
+    utill.make_dir(folder+"/labels")
     
 
     train_list = os.listdir(folder +"/train_images")
@@ -101,7 +105,7 @@ def yolo_train_commend(data_folder,yolo_folder,yolo_model_select ,epochs=50,weig
     else:
         yolo_model_select = ""
     options =   {
-                'img' : '416',      #이미지 높이
+                'img' : '640',      #이미지 높이
                 'batch' : str(batch),      #배치 높이
                 'epochs' : str(epochs),
                 'data' : opt_data,
@@ -146,3 +150,23 @@ def get_newest_yolopt_path(train_name, yolo_path):
     result = path + "/" + max_target + "/weights/best.pt"
 
     return result
+
+def pred_to_label_txt(img, pred, label_path, img_name):
+    img_h, img_w, _c = img.shape
+    write_labels =[]
+    for i in pred:
+        lu_x = int(i[0]) / img_w
+        lu_y = int(i[1]) / img_h
+        rd_x = int(i[2]) / img_w
+        rd_y = int(i[3]) / img_h
+        midx = str(round((lu_x + rd_x)/2,6))
+        midy = str(round((lu_y + rd_y)/2,6))
+        pred_w = str(round((rd_x - lu_x)/2,6))
+        pred_h = str(round((rd_y - lu_y)/2,6))
+        cls = str(int(i[5]))
+        label = cls + " " + midx + " " + midy + " " + pred_w + " " + pred_h
+        write_labels.append(label)
+
+        with open(label_path + "/" + img_name+".txt", 'w' )as f:
+            for k in write_labels:
+                f.write(k+"\n")
