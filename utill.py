@@ -1,29 +1,10 @@
 import time
-import datetime
 import os
 
 def time_stamp():
     time_stamp = time.strftime('%y.%m.%d_%H.%M.%S',time.localtime())
     return time_stamp
 
-class Timecost():
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self):
-        start = datetime.now()
-        self.func()
-        end = datetime.now()
-        print('time_const = ',end-start)
-
-def Timecost2(func):
-    def decorated():
-        start = datetime.now()
-        func()
-        end = datetime.now()
-        print('time_const = ',end-start)
-    return decorated
-    
 class HG_Progress():
     '''
     학습이나 반복문 돌릴때 오래걸리고 언제끝나는지 궁금할때 진행현황 보기 위해
