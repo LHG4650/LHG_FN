@@ -57,3 +57,30 @@ def make_dir(path):
     except OSError:
         print("Error: creationg direictory.  "  + path)
         
+class Txt_saver():
+    ''' 
+        텍스트 한줄씩 써가는 클래스
+        선언시 원하는 파일주소를 입력하면 없으면 만들고 있으면 사용함.
+        호출마다 호출에 넣어주는 텍스트를 파일 하단에 한줄 추가해줌
+        ex...
+        T_S = Txt_saver(txt_filepath):
+        T_S('txt')
+    '''
+    def __init__(self, file_path) -> None:
+        self.file_path = file_path
+        self.file_satus = os.path.isfile(file_path)
+        if not(self.file_satus):
+            self.create(file_path)
+        self.open_file()
+
+    def create(self, path):
+        self.f = open(path,'w',encoding='utf-8')
+        self.f.close()
+
+    def open_file(self):
+        self.f = open(self.file_path,'a',encoding='utf-8')
+
+    def __call__(self, txt):
+        self.open_file()
+        self.f.write(txt+'\n')
+        self.f.close()
