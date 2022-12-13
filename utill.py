@@ -1,5 +1,7 @@
 import time
 import os
+import win32print
+
 
 def time_stamp():
     time_stamp = time.strftime('%y.%m.%d_%H.%M.%S',time.localtime())
@@ -84,3 +86,10 @@ class Txt_saver():
         self.open_file()
         self.f.write(txt+'\n')
         self.f.close()
+
+def GetPrinterList():
+    printers = win32print.EnumPrinters(2)
+    printers_name_list = []
+    for i in printers:
+        printers_name_list.append(i[2])
+    return printers_name_list
