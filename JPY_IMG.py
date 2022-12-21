@@ -46,3 +46,65 @@ class ImgWindow():
 
         plt.show()
 
+def img_compare(img1,img2):
+    ''' 1. cv2.HISTCMP_CORREL : 상관관계
+            1: 완전 일치, -1: 완전 불일치, 0: 무관계
+            빠르지만 부정확
+        2. cv2.HISTCMP_CHISQR : 카이제곱 검정(Chi-Squared Test)
+            0: 완전 일치, 무한대: 완전 불일치
+        3. cv2.HISTCMP_INTERSECT : 교차
+            1: 완전 일 치, 0: 완전 불일치(히스토그램이 1로 정규화된 경우)
+        4. cv2.HISTCMP_BHATTACHARYYA : 바타차야 거리
+            0: 완전 일치, 1: 완전 불일치
+            느리지만 가장 정확
+        5. EMD
+            직관적이지만 가장 느림
+    '''
+    imgs = [img1,img2]
+    methods = 'CORREL'
+    hists = []
+    for img in imgs:
+        # BGR 이미지를 HSV 이미지로 변환
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        # 히스토그램 연산(파라미터 순서 : 이미지, 채널, Mask, 크기, 범위)
+        hist = cv2.calcHist([hsv], [0, 1], None, [180, 256], [0, 180, 0, 256])
+        # 정규화(파라미터 순서 : 정규화 전 데이터, 정규화 후 데이터, 시작 범위, 끝 범위, 정규화 알고리즘)
+        cv2.normalize(hist, hist, 0, 1, cv2.NORM_MINMAX)
+        # hists 리스트에 저장
+        hists.append(hist)
+    
+    ret = cv2.compareHist(hists[0], hists[1], 0)
+    return ret
+
+def variance_of_laplacian(img2):
+    # 흐림의 정도 확인
+    # compute the Laplacian of the image and then return the focus
+    # measure, which is simply the variance of the Laplacian
+    gray = cv2.cvtColor(img2, cv2.COLOR_RGB2BGR)
+    return cv2.Laplacian(gray, cv2.CV_64F).var()
+
+def _BGR2RGB(BGR_img):
+    # turning BGR pixel color to RGB
+    rgb_image = cv2.cvtColor(BGR_img, cv2.COLOR_BGR2RGB)
+    return rgb_image
+
+def blurrinesDetection(directories,threshold):
+    columns = 3
+    rows = len(directories)//2
+    fig=plt.figure(figsize=(5*columns, 4*rows))
+    for i,directory in enumerate(directories):
+        fig.add_subplot(rows, columns, i+1)
+        img = cv2.imread(directory)
+        text = "Not Blurry"
+        # if the focus measure is less than the supplied threshold,
+        # then the image should be considered "blurry
+        fm = variance_of_laplacian(img)
+        if fm < threshold:
+            text = "Blurry"
+        rgb_img = _BGR2RGB(img)
+        cv2.putText(rgb_img, "{}: {:.2f}".format(text, fm), (10, 30),cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+        plt.imshow(rgb_img)
+    plt.show()
+    
+if __name__ == "__main__":
+    print('hear?')

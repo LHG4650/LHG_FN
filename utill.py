@@ -93,3 +93,20 @@ def GetPrinterList():
     for i in printers:
         printers_name_list.append(i[2])
     return printers_name_list
+
+def check_status():
+    import torch
+    import os
+    print(os.popen('nvcc --version').read())
+    print('torch_version : ',torch.__version__)
+    #python -m pip install --upgrade pip ## pip upgrade
+    #cuda == 11.1 << 상대면?
+    #conda install pytorch torchvision torchaudio cudatoolkit=11.1 -c pytorch-lts -c conda-forge
+    #https://velog.io/@openjr/Yolo-v5-ROS%EC%97%90-%EC%98%AC%EB%A6%AC%EA%B8%B0  #upsampling 문제 해결
+    '''
+    import torch.nn.modules.upsampling
+    def forward(self, input: Tensor) -> Tensor:
+        # return F.interpolate(input, self.size, self.scale_factor, self.mode, self.align_corners,
+        #                      recompute_scale_factor=self.recompute_scale_factor)
+        return F.interpolate(input, self.size, self.scale_factor, self.mode, self.align_corners)
+        '''

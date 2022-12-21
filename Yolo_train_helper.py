@@ -73,6 +73,11 @@ def yaml_make(folder):
 
     print('cls list =',class_list)
 
+'''
+python -m torch.distributed.run --nproc_per_node 2 /home/user/Desktop/GUN/yolov5/train.py --batch 128 --data /home/user/Desktop/GUN/SD_Dataset/1130_yolo_train/data.yaml --weight /home/user/Desktop/GUN/yolov5/yolov5s.pt --device 0,1
+
+'''
+import torch.distributed.run
 def yolo_train_commend(data_folder,yolo_folder,yolo_model_select ,epochs=50,weight=1, name ='noname', auto = False, batch = 4):
     '''
     data_folder : C:/Users/gusrm/Desktop/porg/FBF8_IC_porridgevision/dataset/train_dataset_v2
@@ -123,6 +128,16 @@ def yolo_train_commend(data_folder,yolo_folder,yolo_model_select ,epochs=50,weig
     print(' ----입력값---------------------')
     print(opt)
     print('--------------------------------')
+
+    print('workstation 용 -----------------')
+    opt = "python -m torch.distributed.run --nproc_per_node 2 "+yolo_train_path
+    for i in ['batch','epochs','data','cfg','weight','name']:
+        pre = ' --'
+        back = ' '
+        opt = opt + pre + i + back + options[i]
+    print(opt+' --device 0,1')
+    print('--------------------------------')
+
     if auto:
         os.system(opt)
         #pt_path = get_newest_yolopt_path(name)
@@ -151,8 +166,8 @@ def get_newest_yolopt_path(train_name, yolo_path):
 
     return result
 
-def pred_to_label_txt(img, pred, label_path, img_name):
-    img_h, img_w, _c = img.shape
+def pred_to_label_txt(folder, cv_img, pred, class_num, file_name):
+    img_h, img_w, _c = cv_img.shape
     write_labels =[]
     for i in pred:
         lu_x = int(i[0]) / img_w
@@ -161,12 +176,12 @@ def pred_to_label_txt(img, pred, label_path, img_name):
         rd_y = int(i[3]) / img_h
         midx = str(round((lu_x + rd_x)/2,6))
         midy = str(round((lu_y + rd_y)/2,6))
-        pred_w = str(round((rd_x - lu_x)/2,6))
-        pred_h = str(round((rd_y - lu_y)/2,6))
-        cls = str(int(i[5]))
+        pred_w = str(round((rd_x - lu_x),6))
+        pred_h = str(round((rd_y - lu_y),6))
+        cls = str(class_num)
         label = cls + " " + midx + " " + midy + " " + pred_w + " " + pred_h
         write_labels.append(label)
 
-        with open(label_path + "/" + img_name+".txt", 'w' )as f:
-            for k in write_labels:
-                f.write(k+"\n")
+    with open(folder + '/labels/' + file_name+".txt", 'w' )as f:
+        for k in write_labels:
+            f.write(k+"\n")
