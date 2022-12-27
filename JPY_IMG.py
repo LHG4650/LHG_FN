@@ -106,5 +106,10 @@ def blurrinesDetection(directories,threshold):
         plt.imshow(rgb_img)
     plt.show()
     
+def crop_yolo_img(img,pred):
+    pred = pred[0][0].int() 
+    img = img[pred[1]:pred[3],pred[0]:pred[2]]
+    return img
+
 if __name__ == "__main__":
     print('hear?')

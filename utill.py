@@ -1,6 +1,5 @@
 import time
 import os
-import win32print
 
 
 def time_stamp():
@@ -88,6 +87,7 @@ class Txt_saver():
         self.f.close()
 
 def GetPrinterList():
+    import win32print
     printers = win32print.EnumPrinters(2)
     printers_name_list = []
     for i in printers:
@@ -110,3 +110,8 @@ def check_status():
         #                      recompute_scale_factor=self.recompute_scale_factor)
         return F.interpolate(input, self.size, self.scale_factor, self.mode, self.align_corners)
         '''
+
+def DeleteAllFile(folder_path):
+    if os.path.exists(folder_path):
+        for file in os.scandir(folder_path):
+            os.remove(file.path)
