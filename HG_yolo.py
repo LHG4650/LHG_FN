@@ -11,12 +11,14 @@ from torch.cuda.amp import autocast
 # test_img = cv2.imread(test_img)
 #'''''''''
 sys.path.append(os.path.join(os.getcwd(), 'yolov5'))
-
-from utils.torch_utils import select_device
-from models.experimental import attempt_load
-from utils.general import check_img_size, non_max_suppression, scale_boxes
-from utils.augmentations import letterbox
-from utils.plots import Annotator, colors
+try:
+    from utils.torch_utils import select_device
+    from models.experimental import attempt_load
+    from utils.general import check_img_size, non_max_suppression, scale_boxes
+    from utils.augmentations import letterbox
+    from utils.plots import Annotator, colors
+except:
+    print('폴더 내 yolo 가 없는듯 합니다')
 
 class HG_yolo:
     def __init__(self, ptPath) -> None:

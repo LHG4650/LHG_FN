@@ -1,8 +1,12 @@
 import cv2
 import matplotlib
 import matplotlib.pyplot as plt
+import os
+import numpy as np
+
 #ㅜ 아래 라인이 입력되야 vscode에서 셀 밑 라인에 표시가 된다.
-#%matplotlib inline                              
+#%matplotlib inline  
+os.environ['KMP_DUPLICATE_LIB_OK']='True'                            
 
 plt.rcParams['font.family'] ='Malgun Gothic'        #<<< 한글 깨짐 방지
 plt.rcParams['axes.unicode_minus'] =False           #<<< -(마이너스) 부호 깨짐 방지
@@ -107,7 +111,8 @@ def blurrinesDetection(directories,threshold):
     plt.show()
     
 def crop_yolo_img(img,pred):
-    pred = pred[0][0].int() 
+    pred = pred[0][0].int().cpu().tolist()
+    pred = np.clip(pred,0,640)
     img = img[pred[1]:pred[3],pred[0]:pred[2]]
     return img
 
