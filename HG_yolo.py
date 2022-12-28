@@ -64,7 +64,7 @@ class HG_yolo:
         with autocast():
             pred = self.model(im, augment=self.augment, visualize=self.visualize)[0]
 
-        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, self.classes, self.agnostic_nms, max_det=self.max_det)
+        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, self.classes, self.agnostic_nms, max_det=self.max_det)[0]
 
         return im, pred
 
