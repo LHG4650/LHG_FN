@@ -73,7 +73,7 @@ class HG_yolo:
         yolo_img, pred = self._img_prep_detect(img)
         if mode:
             yolo_img = self.draw_boxes(yolo_img,img,pred)
-        return yolo_img,pred
+        return yolo_img,pred[0]
         
 
     def draw_boxes(self, im, img0, pred):
