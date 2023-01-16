@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import os
 from torch.cuda.amp import autocast
+from PIL import ImageFont
 #test'''''
 # import cv2
 # test_img = r'C:\Users\DW\Desktop\porg\dataset\YOLO_DATASET\SD_Classification\images/dish_22.11.22_15.11.25.jpg'
@@ -21,24 +22,23 @@ except:
     print('폴더 내 yolo 가 없는듯 합니다')
 
 class HG_yolo:
-    def __init__(self, ptPath) -> None:
-        self.device = select_device()
+    def __init__(self, ptPath, device = '', class_path = False ,pil=False) -> None:
         
-        #self.model =  attempt_load(ptPath)
+        self.device = select_device(device)
+        self.model = attempt_load(ptPath, device=self.device)
 
+        self.stride = int(self.model.stride.max())
         self.augment=False
         self.visualize=False
         
-        model = torch.load(ptPath,self.device)
-        self.model = model['model']
-
-        
-
-        self.stride = int(self.model.stride.max())
-        self.name = model
+        ##Annotator
+        self.pil = pil
+        self.set_class_name(class_path)
+    
+        self.name = self.model.names
 
         self.imgsz = check_img_size(640, s=self.stride)
-        self.fp16 = True
+        self.fp16 = False
 
         ### non_max_suppression opt. ###
         self.conf_thres=0.60
@@ -47,6 +47,14 @@ class HG_yolo:
         self.classes = None
         self.agnostic_nms = False
 
+    def set_class_name(self,path):
+        if path:
+            txt = open(path, 'r', encoding= 'utf-8').readlines()
+            txt_list = ''.join(txt).replace('\n',',').split(',')
+            self.class_name = txt_list
+        else:
+            self.class_name = False
+    
 
     def _img_prep_detect(self, img):
         '''
@@ -61,15 +69,16 @@ class HG_yolo:
         im /= 255  # 0 - 255 to 0.0 - 1.0
         if len(im.shape) == 3:
             im = im[None]  # expand for batch dim
-        with autocast():
-            pred = self.model(im, augment=self.augment, visualize=self.visualize)[0]
+        
+        #with autocast(device_type=self.device):
+        pred = self.model(im, augment=self.augment, visualize=self.visualize)[0]
 
-        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, self.classes, self.agnostic_nms, max_det=self.max_det)[0]
+        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, self.classes, self.agnostic_nms, max_det=self.max_det)
 
         return im, pred
 
     def __call__(self, img, mode = 0):
-        
+        img = copy.deepcopy(img)
         yolo_img, pred = self._img_prep_detect(img)
         if mode:
             yolo_img = self.draw_boxes(yolo_img,img,pred)
