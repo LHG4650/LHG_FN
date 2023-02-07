@@ -1,6 +1,7 @@
 import time
 import os
 
+
 def time_stamp():
     time_stamp = time.strftime('%y.%m.%d_%H.%M.%S',time.localtime())
     return time_stamp
@@ -92,6 +93,23 @@ def GetPrinterList():
     for i in printers:
         printers_name_list.append(i[2])
     return printers_name_list
+
+def get_printer_job(printer_name):
+    import win32print
+    ''' printer 에 잡혀있는 Queue 리스트를 반환함 [ 프린터 대기열 페이지 반환함 ]
+        없으면 []을 반환함 '''
+    job_list = []
+    for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL,None, 1):
+        flags, desc, name, comment = p
+        if name == printer_name:
+            phandle = win32print.OpenPrinter(name)
+            print_jobs = win32print.EnumJobs(phandle, 0, -1, 1)
+            if print_jobs:
+                for job in print_jobs:
+                    document = job["pDocument"]
+                    job_list.append(document)
+            win32print.ClosePrinter(phandle)
+    return job_list
 
 def check_status():
     import torch
