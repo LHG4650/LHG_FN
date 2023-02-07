@@ -184,4 +184,3 @@ def crop_yolo_img(img,pred):
     img = img[pred[1]:pred[3],pred[0]:pred[2]]
     return img
 
-if __name__ == "__main__":
