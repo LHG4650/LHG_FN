@@ -170,3 +170,25 @@ def pred_to_label_txt(img, pred, label_path, img_name):
         with open(label_path + "/" + img_name+".txt", 'w' )as f:
             for k in write_labels:
                 f.write(k+"\n")
+
+def pred_to_label_txt3(folder, cv_img, pred, class_num, base_name):
+    img_h, img_w, _c = cv_img.shape
+    write_labels = []
+    for i in pred:
+        lu_x = int(i[0]) / img_w
+        lu_y = int(i[1]) / img_h
+        rd_x = int(i[2]) / img_w
+        rd_y = int(i[3]) / img_h
+        midx = str(round((lu_x + rd_x)/2, 6))
+        midy = str(round((lu_y + rd_y)/2, 6))
+        pred_w = str(round((rd_x - lu_x), 6))
+        pred_h = str(round((rd_y - lu_y), 6))
+        cls = str(class_num)
+        label = cls + " " + midx + " " + midy + " " + pred_w + " " + pred_h
+        write_labels.append(label)
+
+    save_path = os.path.join(folder, base_name[:-4]+'.txt')
+    
+    with open(save_path, 'w')as f:
+        for k in write_labels:
+            f.write(k+"\n")
