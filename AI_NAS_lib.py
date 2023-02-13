@@ -3,7 +3,7 @@ from ftplib import FTP
 from io import BytesIO
 
 '''
-write : 22.11.17
+write : 23.02.13
 ver 1.1.1
 애러처리 잘 안되어있음~ 제보바람~
 '''
@@ -46,10 +46,6 @@ class AI_NAS():
     def download_file(self, nas_data_path, local_save_path):
         ''' ex) NAS.download_file('/Project/폴더 설명.txt','폴더 설명.txt')
                 NAS.download_file('nas 다운로드 파일명 ','파일 저장경로') '''
-        fd = open(local_save_path, 'wb')
-    def download_file(self, nas_data_path, local_save_path):
-        ''' ex) NAS.download_file('/Project/폴더 설명.txt','폴더 설명.txt')
-                NAS.download_file('nas 다운로드 파일명 ','파일 저장경로') '''
         nas_data_path = self.path_check(nas_data_path,'nas')
         fd = open(local_save_path, 'wb')
         self.ftp.encoding = 'utf-8'
@@ -60,20 +56,9 @@ class AI_NAS():
     def upload_file(self,nas_save_path,upload_file_path):
         ''' ex) NAS.upload_file('/Project/text.txt','테스트 업로드.txt')
                 NAS.upload_file('NAS 저장경로','올릴 파일 경로',)       '''
-    def upload_file(self,nas_save_path,upload_file_path):
-        ''' ex) NAS.upload_file('/Project/text.txt','테스트 업로드.txt')
-                NAS.upload_file('NAS 저장경로','올릴 파일 경로',)       '''
         nas_save_path = self.path_check(nas_save_path,'nas')
         upload_file_path = self.path_check(upload_file_path,'not_nas')
         with open(file=upload_file_path, mode='rb') as wf:
-            self.ftp.storbinary('STOR '+nas_save_path,wf)
-
-    def upload_img_directly(self,nas_save_path,cv_img):
-        ''' ex) NAS.upload_img_directly('/Project/text.txt'cv_img)
-                NAS.upload_img_directly('NAS 저장경로', cv2 이미지 바로 ) '''
-        _retval, buffer = cv2.imencode('.jpg', cv_img)
-        flo = BytesIO(buffer)
-        self.ftp.storbinary('STOR '+nas_save_path,flo)
             self.ftp.storbinary('STOR '+nas_save_path,wf)
 
     def upload_img_directly(self,nas_save_path,cv_img):
