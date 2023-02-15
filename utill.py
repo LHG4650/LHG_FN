@@ -1,6 +1,8 @@
 import time
 import os
 import logging
+import win32print
+import torch
 
 
 def time_stamp():
@@ -75,6 +77,12 @@ def make_dir(path):
         print("Error: creationg direictory.  " + path)
 
 
+def DeleteAllFile(folder_path):
+    if os.path.exists(folder_path):
+        for file in os.scandir(folder_path):
+            os.remove(file.path)
+
+
 class Txt_saver:
     """
     텍스트 한줄씩 써가는 클래스
@@ -106,8 +114,6 @@ class Txt_saver:
 
 
 def GetPrinterList():
-    import win32print
-
     printers = win32print.EnumPrinters(2)
     printers_name_list = []
     for i in printers:
@@ -116,36 +122,19 @@ def GetPrinterList():
 
 
 def get_printer_job(printer_name):
-    import win32print
-
-    """ printer 에 잡혀있는 Queue 리스트를 반환함 [ 프린터 대기열 페이지 반환함 ]
-        없으면 []을 반환함 """
-
+    """printer 에 잡혀있는 Queue 리스트를 반환함 [ 프린터 대기열 페이지 반환함 ]
+    없으면 []을 반환함"""
     """
-    JOB_STATUS_COMPLETE는 프린터에 출력된 문서를 완료했을 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_DELETED는 프린터 대기열에 있는 문서가 삭제되었을 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_DELETING는 프린터 대기열에 존재하는 문서가 삭제되는 중일 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_ERROR는 프린터에 문제가 발생하여 출력이 실패하는 경우 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_OFFLINE는 프린터가 오프라인 상태일 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_PAPEROUT는 프린트할 용지가 없을 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_PAUSED는 프린트 작업이 일시 중단되었을 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_PRINTED는 프린트 작업이 완료되었을 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_PRINTING은 프린트 작업이 진행 중일 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_RESTART는 프린트 작업이 재시작되었을 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_SPOOLING은 프린트 작업이 스풀링 중일 때 발생하는 상태를 의미합니다. 
-
-JOB_STATUS_USER_INTERVENTION은 사용자의 조치가 필요한 경우 발생하는 상태를 의미합니다.
-"""
+    win32print.JOB_STATUS_PAUSED = 4 : 인쇄가 일시 중단된 상태입니다.
+    win32print.JOB_STATUS_ERROR = 8: 에러가 발생해 인쇄가 실패한 상태입니다.
+    win32print.JOB_STATUS_DELETING = 16: 인쇄 작업이 삭제되려고 하는 상태입니다.
+    win32print.JOB_STATUS_SPOOLING = 32: 인쇄 작업이 큐에 저장되려고 하는 상태입니다.
+    win32print.JOB_STATUS_PRINTING = 64: 인쇄 작업이 진행되는 상태입니다.
+    win32print.JOB_STATUS_OFFLINE = 128: 프린터가 오프라인 상태이거나 문제가 있는 상태입니다.
+    win32print.JOB_STATUS_PAPEROUT = 256: 용지가 부족한 상태입니다.
+    win32print.JOB_STATUS_PRINTED = 512: 인쇄 작업이 완료된 상태입니다.
+    win32print.JOB_STATUS_DELETED = 1024: 인쇄 작업이 삭제된 상태입니다.
+    """
 
     job_list = []
     for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL, None, 1):
@@ -160,15 +149,13 @@ JOB_STATUS_USER_INTERVENTION은 사용자의 조치가 필요한 경우 발생�
                     submit_time = job["Submitted"]
                     submit_time = submit_time.Format("%Y-%m-%d %H:%M:%S")
                     status = job["Status"]
-                    job_list.append([document, page_count, submit_time, status])
+                    job_list.append([submit_time, document, page_count, status])
 
             win32print.ClosePrinter(phandle)
     return job_list
 
 
 def check_status():
-    import torch
-    import os
 
     print(os.popen("nvcc --version").read())
     print("torch_version : ", torch.__version__)
@@ -183,12 +170,6 @@ def check_status():
         #                      recompute_scale_factor=self.recompute_scale_factor)
         return F.interpolate(input, self.size, self.scale_factor, self.mode, self.align_corners)
         """
-
-
-def DeleteAllFile(folder_path):
-    if os.path.exists(folder_path):
-        for file in os.scandir(folder_path):
-            os.remove(file.path)
 
 
 def set_logger(project_name, Test_mode=False, log_level=logging.INFO):
@@ -215,3 +196,12 @@ def set_logger(project_name, Test_mode=False, log_level=logging.INFO):
     logger.addHandler(streamingHandler)
     logger.addHandler(file_handler)
     return logger, log_file_path
+
+
+class time_checker:
+    def __init__(self) -> None:
+        self.init_time = time.time()
+
+    def __call__(self, name="Non_state"):
+        print(name, time.time() - self.init_time)
+        self.init_time = time.time()
