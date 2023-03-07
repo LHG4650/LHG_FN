@@ -5,6 +5,9 @@ from PyQt5 import uic
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtCore import *
+from PyQt5.QtWidgets import QApplication, QWidget
+
+App = QApplication(sys.argv)
 
 SD_UI_PATH = r'LHG_FN\ui\monitor_N_btn.ui'
 main_window_form_class = uic.loadUiType(SD_UI_PATH)[0]
@@ -97,7 +100,8 @@ class QHG_Default(QtWidgets.QMainWindow, main_window_form_class):
         monitor.setPixmap(img)
 
 def QHG_Default_active(QHG_Default :QHG_Default):
-    App = QApplication(sys.argv)
+    global App
+
     Root = QHG_Default
     Root.showNormal()
     sys.exit(App.exec())
