@@ -1,6 +1,51 @@
 import os
 from LHG_FN import utill
 
+def pred_to_label(save_file_name : str , cv_img , pred, class_num = False):
+    ''' yolo pred를 txt파일로 만듦 
+    save_file_name : 저장할 파일 명, 경로
+    cv_img : yolo 이미지, 사이즈를 알아야함
+    pred : yolo pred 결과물 -> {x1,y1,x2,y2,prob,cls}
+    class_num = yolo 클래스 넣고싶은것 비어있으면 기존 cls가 들어감
+    * yolo label은 [cls,midx,midy,wide,high] 로 이루어져있음
+    '''
+    img_h, img_w, _c = cv_img.shape
+    write_labels =[]
+    for i in pred:
+        lu_x = int(i[0]) / img_w
+        lu_y = int(i[1]) / img_h
+        rd_x = int(i[2]) / img_w
+        rd_y = int(i[3]) / img_h
+        midx = str(round((lu_x + rd_x)/2,6))
+        midy = str(round((lu_y + rd_y)/2,6))
+        pred_w = str(round((rd_x - lu_x),6))
+        pred_h = str(round((rd_y - lu_y),6))
+        if class_num == False:
+            cls = str(int(i[5]))
+        else:
+            cls = str(class_num)
+        label = cls + " " + midx + " " + midy + " " + pred_w + " " + pred_h
+        write_labels.append(label)
+
+        with open(save_file_name, 'w' )as f:
+            for k in write_labels:
+                f.write(k+"\n")
+
+def set_classes(folder_path : str, cls_name_list : list):
+    ''' yolo classes를 생성하는 함수 
+    folder_path = classes생성할 경로
+    cls_name_list = 클래스로 만들고싶은걸 넣어주길 바람'''
+    class_list = cls_name_list
+    folder = ['train','val','test']
+    for i in folder:
+        path = os.path.join(folder_path,'labels',i,'classes.txt')
+        with open(path,'w')as f:
+            for Cls in class_list:
+                f.write(str(Cls) + "\n")
+
+#--------------------------------------------------------------------------------------
+
+
 def yaml_make(folder):
     '''
     yolo 학슴을 위한 yaml. test. val 파일을 만드는 함수이다.
@@ -167,6 +212,8 @@ def get_newest_yolopt_path(train_name, yolo_path):
     return result
 
 def pred_to_label_txt(folder, cv_img, pred, class_num, file_name):
+    ''' 과거 코드용임 '''
+    print('pred_to_label 를 사용해주세요 코드 변경됬습니다. 조만간 삭제됩니다.')
     img_h, img_w, _c = cv_img.shape
     write_labels =[]
     for i in pred:
@@ -186,7 +233,10 @@ def pred_to_label_txt(folder, cv_img, pred, class_num, file_name):
             for k in write_labels:
                 f.write(k+"\n")
 
+
 def pred_to_label_txt3(folder, cv_img, pred, class_num, base_name):
+    ''' 과거 코드용임 '''
+    print('pred_to_label 를 사용해주세요 코드 변경됬습니다. 조만간 삭제됩니다.')
     img_h, img_w, _c = cv_img.shape
     write_labels = []
     for i in pred:
@@ -207,3 +257,29 @@ def pred_to_label_txt3(folder, cv_img, pred, class_num, base_name):
     with open(save_path, 'w')as f:
         for k in write_labels:
             f.write(k+"\n")
+
+
+def pred_to_label_stable(save_file_name : str , cv_img , pred, class_num = False):
+    ''' 과거 코드용임 '''
+    print('pred_to_label 를 사용해주세요 코드 변경됬습니다. 조만간 삭제됩니다.')
+    img_h, img_w, _c = cv_img.shape
+    write_labels =[]
+    for i in pred:
+        lu_x = int(i[0]) / img_w
+        lu_y = int(i[1]) / img_h
+        rd_x = int(i[2]) / img_w
+        rd_y = int(i[3]) / img_h
+        midx = str(round((lu_x + rd_x)/2,6))
+        midy = str(round((lu_y + rd_y)/2,6))
+        pred_w = str(round((rd_x - lu_x),6))
+        pred_h = str(round((rd_y - lu_y),6))
+        if class_num == False:
+            cls = str(int(i[5]))
+        else:
+            cls = str(class_num)
+        label = cls + " " + midx + " " + midy + " " + pred_w + " " + pred_h
+        write_labels.append(label)
+
+        with open(save_file_name, 'w' )as f:
+            for k in write_labels:
+                f.write(k+"\n")

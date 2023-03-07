@@ -1,14 +1,11 @@
-import time
 import os
-import logging
-import win32print
+import time
 import torch
-
-
-def time_stamp():
-    time_stamp = time.strftime("%y.%m.%d_%H.%M.%S", time.localtime())
-    return time_stamp
-
+import shutil
+import logging
+import datetime
+import platform
+import configparser
 
 class HG_Progress:
     """
@@ -68,6 +65,111 @@ class HG_Progress:
         txt = "\r" + progress_txt + elapse_time_txt + remain_time_txt + pred_time_txt
         print(txt, end="")
 
+def set_config(project_name):
+    ''' config파일 생성해주는 함수
+    G_config, L_config 를 반환함 없으면 만듦
+    G_config = 글로벌 config으로 운영체제에 따라 생성되는 위치가 다름 주로 TEST모드나 dev환경인지 jetson환경인지에 따라 다름
+    L_config = 로컬 config으로 프로그램 돌아가는데 필요한 상수값을 넣어둠 주로 경로류
+
+    경로
+    window  G_config : C://HG_Project_config/Project_name/G_config.ini
+            L_config : custom/config/L_config.ini
+    Linux   G_config : /home/HG_Project_config/Project_name/G_config.ini
+            L_config : custom/config/L_config.ini
+    '''
+
+    Os = platform.system()
+    print(Os)
+    if Os == 'Windows':
+        Global_Config = os.path.join('C:\\','HG_Project_config',project_name,'G_config.ini')
+    else :
+        #Os == 'Linux':
+        Global_Config = os.path.join('/home','HG_Project_config',project_name,'G_config.ini')
+    Local_Config = os.path.join('custom','config','L_config.ini')
+
+    for i in [Global_Config,Local_Config]:
+        dir_name = os.path.dirname(i)
+        make_dir(dir_name)
+    
+    if os.path.exists(Global_Config):
+        G_config = configparser.ConfigParser()
+        G_config.read_file(open(Global_Config))
+    else:
+        G_config = configparser.ConfigParser()
+        G_config['DEFAULT'] = {'Project_name' : project_name}
+        G_config['MODE'] = {'TEST' : True}
+        G_config['PATH'] = {}
+        with open(Global_Config,'w') as config_file:
+            G_config.write(config_file)
+        G_config.read_file(open(Global_Config))
+
+    if os.path.exists(Local_Config):
+        L_config = configparser.ConfigParser()
+        L_config.read_file(open(Local_Config))
+    else:
+        L_config = configparser.ConfigParser()
+        L_config['DEFAULT'] = {'Project_name' : project_name}
+        L_config['MODE'] = {'TEST' : True}
+        L_config['PATH'] = {}
+        with open(Local_Config,'w') as config_file:
+            L_config.write(config_file)
+        L_config.read_file(open(Local_Config))
+
+    return G_config, L_config
+
+def set_logger(project_name, Test_mode=False, log_level=logging.INFO, save_date = 30):
+    ''' log 관리 함수
+    로그 관리 정책 : 하루 단위로 로그를 끊어서 관리함, save_date 를 넘어가는 로그는 삭제 (defalt 30)
+    명명규칙
+        Test_mode = True : logs/TEST.log    
+        Test_mode = True : logs/project_name.log
+    과거기록 : logs/log_{date}.txt
+    '''
+    make_dir("logs")
+
+    if Test_mode:
+        log_file_path = os.path.join("logs", "TEST" + ".log")
+    else:
+        log_file_path = os.path.join("logs", project_name + ".log")
+    
+    # 일단위 기록 코드
+    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+    yesterday_str = yesterday.strftime('%Y-%m-%d')
+    if os.path.exists(f'logs/log_{yesterday_str}.txt'):
+        print('----',f'log_{yesterday_str}.txt')
+        pass
+    else:
+        print('--')
+        shutil.copyfile(log_file_path, f'logs/log_{yesterday_str}.txt')
+        os.remove(log_file_path)
+
+    # 한달 이전 데이터 삭제 코드
+    folder = 'logs'
+    current_time = time.time()
+    file_list = os.listdir(folder)
+    for file_name in file_list:
+        file_path = os.path.join(folder, file_name)
+        modified_time = os.path.getmtime(file_path)
+        if (current_time - modified_time) // (24 * 3600) >= save_date:
+            os.remove(file_path)
+
+    logger = logging.getLogger(project_name)
+    logger.setLevel(log_level)
+
+    formatter = logging.Formatter("%(asctime)s [%(levelname)8s] %(message)s")
+
+    # StreamHandler
+    streamingHandler = logging.StreamHandler()
+    streamingHandler.setFormatter(formatter)
+
+    # FileHandler
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setFormatter(formatter)
+
+    logger.addHandler(streamingHandler)
+    logger.addHandler(file_handler)
+
+    return logger
 
 def make_dir(path):
     try:
@@ -76,12 +178,57 @@ def make_dir(path):
     except OSError:
         print("Error: creationg direictory.  " + path)
 
+def GetPrinterList():
+    import win32print
+    printers = win32print.EnumPrinters(2)
+    printers_name_list = []
+    for i in printers:
+        printers_name_list.append(i[2])
+    return printers_name_list
+
+def get_printer_job(printer_name):
+    import win32print
+    """printer 에 잡혀있는 Queue 리스트를 반환함 [ 프린터 대기열 페이지 반환함 ]
+    없으면 []을 반환함"""
+    """
+    # 프린터마다 다른것으로 확인 
+    win32print.JOB_STATUS_PAUSED = 4 : 인쇄가 일시 중단된 상태입니다.
+    win32print.JOB_STATUS_ERROR = 8: 에러가 발생해 인쇄가 실패한 상태입니다.
+    win32print.JOB_STATUS_DELETING = 16: 인쇄 작업이 삭제되려고 하는 상태입니다.
+    win32print.JOB_STATUS_SPOOLING = 32: 인쇄 작업이 큐에 저장되려고 하는 상태입니다.
+    win32print.JOB_STATUS_PRINTING = 64: 인쇄 작업이 진행되는 상태입니다.
+    win32print.JOB_STATUS_OFFLINE = 128: 프린터가 오프라인 상태이거나 문제가 있는 상태입니다.
+    win32print.JOB_STATUS_PAPEROUT = 256: 용지가 부족한 상태입니다.
+    win32print.JOB_STATUS_PRINTED = 512: 인쇄 작업이 완료된 상태입니다.
+    win32print.JOB_STATUS_DELETED = 1024: 인쇄 작업이 삭제된 상태입니다.
+    """
+
+    job_list = []
+    for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL, None, 1):
+        flags, desc, name, comment = p
+        if name == printer_name:
+            phandle = win32print.OpenPrinter(name)
+            print_jobs = win32print.EnumJobs(phandle, 0, -1, 1)
+            if print_jobs:
+                for job in print_jobs:
+                    document = job["pDocument"]
+                    page_count = job["TotalPages"]
+                    submit_time = job["Submitted"]
+                    submit_time = submit_time.Format("%Y-%m-%d %H:%M:%S")
+                    status = job["Status"]
+                    job_list.append([submit_time, document, page_count, status])
+
+            win32print.ClosePrinter(phandle)
+    return job_list
+
+#'----------------------------------------------------------------------------
+
+
 
 def DeleteAllFile(folder_path):
     if os.path.exists(folder_path):
         for file in os.scandir(folder_path):
             os.remove(file.path)
-
 
 class Txt_saver:
     """
@@ -113,47 +260,6 @@ class Txt_saver:
         self.f.close()
 
 
-def GetPrinterList():
-    printers = win32print.EnumPrinters(2)
-    printers_name_list = []
-    for i in printers:
-        printers_name_list.append(i[2])
-    return printers_name_list
-
-
-def get_printer_job(printer_name):
-    """printer 에 잡혀있는 Queue 리스트를 반환함 [ 프린터 대기열 페이지 반환함 ]
-    없으면 []을 반환함"""
-    """
-    win32print.JOB_STATUS_PAUSED = 4 : 인쇄가 일시 중단된 상태입니다.
-    win32print.JOB_STATUS_ERROR = 8: 에러가 발생해 인쇄가 실패한 상태입니다.
-    win32print.JOB_STATUS_DELETING = 16: 인쇄 작업이 삭제되려고 하는 상태입니다.
-    win32print.JOB_STATUS_SPOOLING = 32: 인쇄 작업이 큐에 저장되려고 하는 상태입니다.
-    win32print.JOB_STATUS_PRINTING = 64: 인쇄 작업이 진행되는 상태입니다.
-    win32print.JOB_STATUS_OFFLINE = 128: 프린터가 오프라인 상태이거나 문제가 있는 상태입니다.
-    win32print.JOB_STATUS_PAPEROUT = 256: 용지가 부족한 상태입니다.
-    win32print.JOB_STATUS_PRINTED = 512: 인쇄 작업이 완료된 상태입니다.
-    win32print.JOB_STATUS_DELETED = 1024: 인쇄 작업이 삭제된 상태입니다.
-    """
-
-    job_list = []
-    for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL, None, 1):
-        flags, desc, name, comment = p
-        if name == printer_name:
-            phandle = win32print.OpenPrinter(name)
-            print_jobs = win32print.EnumJobs(phandle, 0, -1, 1)
-            if print_jobs:
-                for job in print_jobs:
-                    document = job["pDocument"]
-                    page_count = job["TotalPages"]
-                    submit_time = job["Submitted"]
-                    submit_time = submit_time.Format("%Y-%m-%d %H:%M:%S")
-                    status = job["Status"]
-                    job_list.append([submit_time, document, page_count, status])
-
-            win32print.ClosePrinter(phandle)
-    return job_list
-
 
 def check_status():
 
@@ -172,30 +278,7 @@ def check_status():
         """
 
 
-def set_logger(project_name, Test_mode=False, log_level=logging.INFO):
-    make_dir("logs")
 
-    if Test_mode:
-        log_file_path = os.path.join("logs", "TEST" + ".log")
-    else:
-        log_file_path = os.path.join("logs", project_name + ".log")
-
-    logger = logging.getLogger(project_name)
-    logger.setLevel(log_level)
-
-    formatter = logging.Formatter("%(asctime)s [%(levelname)8s] %(message)s")
-
-    # StreamHandler
-    streamingHandler = logging.StreamHandler()
-    streamingHandler.setFormatter(formatter)
-
-    # FileHandler
-    file_handler = logging.FileHandler(log_file_path)
-    file_handler.setFormatter(formatter)
-
-    logger.addHandler(streamingHandler)
-    logger.addHandler(file_handler)
-    return logger, log_file_path
 
 
 class time_checker:
@@ -205,3 +288,10 @@ class time_checker:
     def __call__(self, name="Non_state"):
         print(name, time.time() - self.init_time)
         self.init_time = time.time()
+
+
+
+def time_stamp():
+    print('잘 안씀 삭제할예정')
+    time_stamp = time.strftime("%y.%m.%d_%H.%M.%S", time.localtime())
+    return time_stamp
