@@ -93,7 +93,7 @@ def set_config(project_name):
     
     if os.path.exists(Global_Config):
         G_config = configparser.ConfigParser()
-        G_config.read_file(open(Global_Config))
+        G_config.read_file(open(Global_Config,encoding='cp949'))
     else:
         G_config = configparser.ConfigParser()
         G_config['DEFAULT'] = {'Project_name' : project_name}
@@ -105,7 +105,7 @@ def set_config(project_name):
 
     if os.path.exists(Local_Config):
         L_config = configparser.ConfigParser()
-        L_config.read_file(open(Local_Config))
+        L_config.read_file(open(Local_Config,encoding='utf-8-sig'))
     else:
         L_config = configparser.ConfigParser()
         L_config['DEFAULT'] = {'Project_name' : project_name}
@@ -127,21 +127,12 @@ def set_logger(project_name, Test_mode=False, log_level=logging.INFO, save_date 
     '''
     make_dir("logs")
 
+    today = datetime.datetime.now()
+    today = today.strftime('%Y-%m-%d')
     if Test_mode:
         log_file_path = os.path.join("logs", "TEST" + ".log")
     else:
-        log_file_path = os.path.join("logs", project_name + ".log")
-    
-    # 일단위 기록 코드
-    yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-    yesterday_str = yesterday.strftime('%Y-%m-%d')
-    if os.path.exists(f'logs/log_{yesterday_str}.txt'):
-        print('----',f'log_{yesterday_str}.txt')
-        pass
-    else:
-        print('--')
-        shutil.copyfile(log_file_path, f'logs/log_{yesterday_str}.txt')
-        os.remove(log_file_path)
+        log_file_path = os.path.join("logs", f'{project_name}_{today}' + ".log")
 
     # 한달 이전 데이터 삭제 코드
     folder = 'logs'
