@@ -15,10 +15,10 @@ main_window_form_class = uic.loadUiType(SD_UI_PATH)[0]
 class QHG_Thread(QThread):
     '''
     사용법
-        self.a = MyThread(self.connect_tcp)
+        self.a = QHG_Thread(self.connect_tcp)
         self.a.start()
 
-        self.a = MyThread(self.connect_tcp, args=(abc,edf))
+        self.a = QHG_Thread(self.connect_tcp, args=(abc,edf))
         self.a.start()
 
     '''

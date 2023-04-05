@@ -1,13 +1,15 @@
 import os
 from LHG_FN import utill
+import torch
 
 def pred_to_label(save_file_name : str , cv_img , pred, class_num = False):
-    ''' yolo pred를 txt파일로 만듦 
+    ''' 
+    yolo pred를 txt파일로 만듦 
     save_file_name : 저장할 파일 명, 경로
     cv_img : yolo 이미지, 사이즈를 알아야함
     pred : yolo pred 결과물 -> {x1,y1,x2,y2,prob,cls}
     class_num = yolo 클래스 넣고싶은것 비어있으면 기존 cls가 들어감
-    * yolo label은 [cls,midx,midy,wide,high] 로 이루어져있음
+    * yolo label은 [cls, midx, midy, wide, high] 로 이루어져있음
     '''
     img_h, img_w, _c = cv_img.shape
     write_labels =[]
@@ -43,49 +45,38 @@ def set_classes(folder_path : str, cls_name_list : list):
             for Cls in class_list:
                 f.write(str(Cls) + "\n")
 
-#--------------------------------------------------------------------------------------
-
-
-def yaml_make(folder):
+def yaml_make(folder, train_rate = 0.9, val_rate = 0.1, test_rate = 0, shuffle = True):
     '''
-    yolo 학슴을 위한 yaml. test. val 파일을 만드는 함수이다.
-
-    아래 네개의 변수 입력해주고 실행시키면 된다.
-    목표 폴더에는 imgaes, labels 가 존재하여야 한다.
-    target_dir      : 폴더명
-    file_formet     : 이미지 확장자명
-    dataset_dir     : 폴더가 있는곳 까지의 경로
-    class_list      : 라벨된 이미지의 class, 리스트로 나타내야 한다.
+    folder(str) : 무조건 절대경로로 들어와야함
     '''
+    main_folder = folder
+    img_folder = os.path.join(main_folder, 'images')
+    label_folder = os.path.join(main_folder, 'labels')
+    meta_folder = os.path.join(main_folder, 'meta')
+    utill.make_dir(img_folder)
+    utill.make_dir(label_folder)
+    utill.make_dir(meta_folder)
 
-    #dataset_dir ="C:/Users/gusrm/Desktop/porg/FBF8_IC_porridgevision/dataset"
-    #target_dir = "yolo_spoonNchamoil_prelab"
-    #train_dir = "train_images"
-    #val_dir = "val_images"
-    #file_formet = "jpg"
-    #class_list2 = ['empty','spoon_in','spoon_out','sesame_out','empty_red','soup_out']
-    utill.make_dir(folder)
-    utill.make_dir(folder+"/train_images")
-    utill.make_dir(folder+"/images")
-    utill.make_dir(folder+"/val_images")
-    utill.make_dir(folder+"/labels")
+    img_list_dumi = os.listdir(img_folder)
+    img_list = [] 
+    for i in img_list_dumi:
+        if '.jpg' in i:
+            img_list.append(os.path.join(img_folder,i))
+
+    if train_rate+val_rate+test_rate != 1:
+        print( 'train test val rate 의 합이 1이 아닙니다 다시 하십쇼')
+        return False
     
+    if shuffle:
+        import random
+        random.shuffle(img_list)
 
-    train_list = os.listdir(folder +"/train_images")
-    train_img_list = []  
-    for i in train_list:
-        #print(i)
-        train_img_list.append(folder +"/images/"+i)
-
-    val_list = os.listdir(folder +"/val_images")
-    val_img_list = []  
-    for i in val_list:
-        #print(i)
-        val_img_list.append(folder +"/images/"+i)
-
-    print('data 총량 - ',len(train_img_list)+len(val_img_list))
-    print('train 총량 - ',len(train_img_list),'test 총량 - ', len(val_img_list))
-
+    img_len = img_list.__len__()
+    train_img_list = img_list[:int(img_len*train_rate)]
+    val_img_list = img_list[int(img_len*train_rate):int(img_len*train_rate)+int(img_len*val_rate)]
+    test_img_lsit = img_list[int(img_len*train_rate)+int(img_len*val_rate):]
+    print(f'train :{train_img_list.__len__()}, val :{val_img_list.__len__()}, test :{test_img_lsit.__len__()}')
+    
     class_list = []
     with open(folder +"/labels/classes.txt", 'r' )as f:
         a = f.readlines()
@@ -96,6 +87,7 @@ def yaml_make(folder):
                 class_list.append(i)
         f.close
     
+    print(f'class_list :{class_list}')
 
     w_line1 = 'nc: ' + str(class_list.__len__())
     w_line2 = "names: [" 
@@ -106,90 +98,81 @@ def yaml_make(folder):
     
     w_line2 = w_line2[:-2] + ']'
 
-    with open(folder+"/train.txt", 'w' )as f:
+
+    with open(os.path.join(meta_folder,'train.txt'), 'w' )as f:
         f.write('\n'.join(train_img_list)+'\n')
-    with open(folder+"/val.txt", 'w' )as f:
+    with open(os.path.join(meta_folder,'val.txt'), 'w' )as f:
         f.write('\n'.join(val_img_list)+'\n')
-    with open(folder+"/data.yaml", 'w' )as f:
-        f.write('train: '+folder+"/train.txt"+'\n')
-        f.write('val: '+folder+"/val.txt"+'\n'+'\n')
+    with open(os.path.join(meta_folder,'test.txt'), 'w' )as f:
+        f.write('\n'.join(test_img_lsit)+'\n')
+
+    with open(os.path.join(meta_folder,'data.yaml'), 'w' )as f:
+        f.write('train: '+os.path.join(meta_folder,'train.txt')+'\n')
+        f.write('val: '  +os.path.join(meta_folder,'val.txt')+'\n')
+        f.write('test: ' +os.path.join(meta_folder,'test.txt')+'\n'+'\n')
         f.write(w_line1+'\n')
         f.write(w_line2+'\n')
 
-    print('cls list =',class_list)
-
-'''
-python -m torch.distributed.run --nproc_per_node 2 /home/user/Desktop/GUN/yolov5/train.py --batch 128 --data /home/user/Desktop/GUN/SD_Dataset/1130_yolo_train/data.yaml --weight /home/user/Desktop/GUN/yolov5/yolov5s.pt --device 0,1
-
-'''
-import torch.distributed.run
-def yolo_train_commend(data_folder,yolo_folder,yolo_model_select ,epochs=50,weight=1, name ='noname', auto = False, batch = 4):
-    '''
-    data_folder : C:/Users/gusrm/Desktop/porg/FBF8_IC_porridgevision/dataset/train_dataset_v2
-    yolo_folder : C:/Users/gusrm/Desktop/porg/yolov5
-    folder 학습이라고 만들어둔 폴더 해당폴더 내에는
-        result pt파일 결과물 저장하는 폴더가 있어야한다.
-        data.yaml 트레인파일 물론 사전에 yaml_make() 를 실행시켜야한다
-
-    epochs 반복횟수
-    weight 사전 가중치로 사용할 파일 
-        1 = 욜로 v5기본 pt
-        2 = 같은 네임으로 저장된 pt중 가장 최신
-        esle = 따로 선택한 pt파일
-    name    #욜로 학습 이름
-    auto    #자동으로 학습까지 할껀지 물어봄
-    '''
-    yolo_train_path = yolo_folder + '/train.py' #상수 변하지않음.
+def yolo_train_command(yolo_folder, data_folder, name, model_size, batch, epochs, img_size = False):
+    print('모든 경로는 절대경로로 넣으세요')
     
-    opt_data = data_folder +"/data.yaml"
-    if weight ==1:  #기본값
-        opt_weight = yolo_folder + "/yolov5s.pt"
-    elif weight == 2:       #같은 이름이 포함된 가장 최신의 pt
-        opt_weight = get_newest_yolopt_path(name, yolo_folder)
-    else:                   #셀프 pt경로 추가
-        opt_weight = weight
+    if img_size == False:
+        import cv2
+        import random
+        img_folder = os.path.join(data_folder,'images')
+        img_list = os.listdir(img_folder)
+        img_path = os.path.join(img_folder,random.choice(img_list))
+        img = cv2.imread(img_path)
+        img_size = max(img.shape)
+        
+        if img_size % 32 != 0:
+            img_size += 32- img_size % 32 
+
+    yolo_train_path = os.path.join(yolo_folder, 'train.py')
+    opt_weight = os.path.join(yolo_folder,'yolov5s.pt')     # 사전학습모델을 쓸것인가?ㅋㅋ
+    opt_data = os.path.join(data_folder,'meta','data.yaml')
 
     assets = ['n', 's', 'm', 'l', 'x']
-    if yolo_model_select in assets: 
-        yolo_model_select = yolo_folder + "/models/yolov5"+yolo_model_select + '.yaml'
+    if model_size in assets: 
+        model_size = yolo_folder + "/models/yolov5"+model_size + '.yaml'
     else:
-        yolo_model_select = ""
+        model_size = ""
     options =   {
-                'img' : '640',      #이미지 높이
+                'img' : str(img_size),      #이미지 높이
                 'batch' : str(batch),      #배치 높이
                 'epochs' : str(epochs),
                 'data' : opt_data,
-                'cfg' : yolo_model_select,
+                'cfg' : model_size,
                 'weight' : opt_weight,
                 'name' : name,
                 'workers' : '0',
             }
 
-    opt = "python " + yolo_train_path
-    for i in options.keys():
-        pre = ' --'
-        back = ' '
-        opt = opt + pre + i + back + options[i]
-    print(' ----입력값---------------------')
-    print(opt)
-    print('--------------------------------')
-
-    print('workstation 용 -----------------')
-    opt = "python -m torch.distributed.run --nproc_per_node 2 "+yolo_train_path
-    for i in ['batch','epochs','data','cfg','weight','name']:
-        pre = ' --'
-        back = ' '
-        opt = opt + pre + i + back + options[i]
-    print(opt+' --device 0,1')
-    print('--------------------------------')
-
-    if auto:
-        os.system(opt)
-        #pt_path = get_newest_yolopt_path(name)
-        #new = folder + "/result/" + time_stamp() + "_" + name +".pt"
-        #check_N_copy_file(pt_path,new)
+    cuda_count = torch.cuda.device_count()
+    if cuda_count <= 1:
+        opt = "python " + yolo_train_path
+        for i in options.keys():
+            pre = ' --'
+            back = ' '
+            opt = opt + pre + i + back + options[i]
+        print(' ----입력값---------------------')
+        print(opt)
+        print('--------------------------------')
     
-    #print('--------33333333333333------------------------')
+    else:
+        print(f'그래픽 카드 {cuda_count}개')
+        print('배치 사이즈 자동조정하였으니 그래픽카드 여러개라고 배치 곱하지 마세여')
+        device = ''.join(str(x)+',' for x in list(range(cuda_count)))[:-1]
+        options['batchs'] = str(batch*cuda_count)
+
+        print('workstation 용 -----------------')
+        opt = "python -m torch.distributed.run --nproc_per_node 2 "+yolo_train_path
+        for i in ['batch','epochs','data','cfg','weight','name']:
+            pre = ' --'
+            back = ' '
+            opt = opt + pre + i + back + options[i]
+        print(opt+' --device '+device)
+        print('--------------------------------')
 
 
 def get_newest_yolopt_path(train_name, yolo_path):

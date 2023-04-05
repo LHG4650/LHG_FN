@@ -1,103 +1,145 @@
+# -*- coding: utf-8 -*-
+
 #작성일 221223
 import torch
-import sys
-import copy
 import numpy as np
-import os
-from torch.cuda.amp import autocast
-from PIL import ImageFont
-#test'''''
-# import cv2
-# test_img = r'C:\Users\DW\Desktop\porg\dataset\YOLO_DATASET\SD_Classification\images/dish_22.11.22_15.11.25.jpg'
-# test_img = cv2.imread(test_img)
-#'''''''''
-sys.path.append(os.path.join(os.getcwd(), 'yolov5'))
+
 try:
-    from utils.torch_utils import select_device
-    from models.experimental import attempt_load
-    from utils.general import check_img_size, non_max_suppression, scale_boxes
-    from utils.augmentations import letterbox
+    from models.common import DetectMultiBackend
     from utils.plots import Annotator, colors
+    from utils.general import check_img_size, non_max_suppression, scale_boxes
+    from utils.torch_utils import select_device
+    from utils.augmentations import letterbox
 except:
     print('폴더 내 yolo 가 없는듯 합니다')
 
-class HG_yolo:
-    def __init__(self, ptPath, device = '', class_path = False ,pil=False) -> None:
+class HgYolo:
+    def __init__(self, 
+                ptPath,         #pt 파일 경로
+                device = '',    #가용 디바이스
+                
+                img_size = (640, 640),  #돌리고자 하는 높이, 넓이
+                
+                conf_thres=0.5,  # confidence threshold
+                iou_thres=0.45,  # NMS IOU threshold
+                max_det=1000,  # maximum detections per image
+
+
+                draw_box_opt = True, # 박스 칠껀지 안칠껀지.
+                draw_label_opt = True
+                ) :
         
+        # condition
+        self.warmup = True
+        self.draw_box_opt = draw_box_opt
+        self.draw_label_opt = draw_label_opt
+
+        # Model Load
         self.device = select_device(device)
-        self.model = attempt_load(ptPath, device=self.device)
+        self.model = DetectMultiBackend(weights = ptPath, device = self.device)
 
-        self.stride = int(self.model.stride.max())
-        self.augment=False
-        self.visualize=False
+        #img check
+        self.img_size = img_size
+        self.line_thickness = 2
         
-        ##Annotator
-        self.pil = pil
-        self.set_class_name(class_path)
-    
-        self.name = self.model.names
+        #NMS config
+        self.conf_thres=conf_thres
+        self.iou_thres = iou_thres
+        self.max_det = max_det
 
-        self.imgsz = check_img_size(640, s=self.stride)
-        self.fp16 = False
+        
 
-        ### non_max_suppression opt. ###
-        self.conf_thres=0.60
-        self.iou_thres=0.45
-        self.max_det=1000
-        self.classes = None
-        self.agnostic_nms = False
 
-    def set_class_name(self,path):
-        if path:
-            txt = open(path, 'r', encoding= 'utf-8').readlines()
-            txt_list = ''.join(txt).replace('\n',',').split(',')
-            self.class_name = txt_list
+        
+    def _warmup(self):
+        stride = self.model.stride
+        img_size = check_img_size(self.img_size, s=stride)  # check image size
+        self.model.warmup(imgsz=(1, 3, *img_size))
+        self.warmup = False
+
+    def detect(self,img):
+
+        if self.warmup:
+            self._warmup()
+
+        if self.draw_box:
+            origin_img = img.copy()
+
+        #img_preprocess
+        img = letterbox(img, self.img_size, self.model.stride, auto=True)[0] # padded resize
+        img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        img = np.ascontiguousarray(img)  # contiguous 
+
+        img = torch.from_numpy(img).to(self.model.device)
+        img = img.float()  # uint8 to fp32
+        img /= 255  # 0 - 255 to 0.0 - 1.0
+        if len(img.shape) == 3:
+            img = img[None]  # expand for batch dim
+
+        #model
+        pred = self.model(img)
+
+        # NMS
+        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, max_det=self.max_det)
+
+        # draw box
+        if self.draw_box_opt:
+            for det in pred:  # per image
+                annotator = Annotator(origin_img, line_width=self.line_thickness, example=str(self.model.names))
+                if len(det):
+                    # Rescale boxes from img_size to im0 size
+                    det[:, :4] = scale_boxes(img.shape[2:], det[:, :4], origin_img.shape).round()
+                    
+                    # Write results
+                    for *xyxy, conf, cls in reversed(det):
+                        c = int(cls)  # integer class
+                        if self.draw_label_opt:
+                            label = f'{self.model.names[c]} {conf:.2f}'
+                        else: 
+                            label = ''
+                        annotator.box_label(xyxy, label, color=colors(c, True))
+                        
+                # Stream results
+                result_img = annotator.result()
         else:
-            self.class_name = False
-    
+            result_img = False
 
-    def _img_prep_detect(self, img):
-        '''
-        이미지 tesnor 0.0 - 1.0 변환
-        '''
-        im = letterbox(img, self.imgsz, stride=self.stride, auto=True)[0]
-        im = im.transpose((2, 0, 1))[::-1]
-        im = np.ascontiguousarray(im)
-        im = torch.from_numpy(im).to(self.device)
-        im = im.half() if self.fp16 else im.float()  # uint8 to fp16/32
+        return [result_img, pred]
 
-        im /= 255  # 0 - 255 to 0.0 - 1.0
-        if len(im.shape) == 3:
-            im = im[None]  # expand for batch dim
-        
-        #with autocast(device_type=self.device):
-        pred = self.model(im, augment=self.augment, visualize=self.visualize)[0]
-
-        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, self.classes, self.agnostic_nms, max_det=self.max_det)
-
-        return im, pred
-
-    def __call__(self, img, mode = 0):
-        img = copy.deepcopy(img)
-        yolo_img, pred = self._img_prep_detect(img)
-        if mode:
-            yolo_img = self.draw_boxes(yolo_img,img,pred)
-        return yolo_img,pred[0]
+    def __call__(self, img):
+        return self.detect(img)
         
 
-    def draw_boxes(self, im, img0, pred):
-        img0 = np.ascontiguousarray(img0) # 에러 방지
-        annotator = Annotator(img0, line_width=2, font_size=3)          #라인 두께
-        for i, det in enumerate(pred):
-            if len(det):
-                # Rescale boxes from img_size to img0 size
-                det[:, :4] = scale_boxes(im.shape[2:], det[:, :4], img0.shape).round()
+    def draw_boxes(self, img, pred, label_opt = False):
+        origin_img = img.copy()
 
-                # Write results
-                for *xyxy, conf, cls in reversed(det):
-                    c = int(cls)  # integer class
-                    label = "" #self.names[c]
-                    annotator.box_label(xyxy, label, color=colors(c, True))
+        img = letterbox(img, self.img_size, self.model.stride, auto=True)[0] # padded resize
+        img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
+        img = np.ascontiguousarray(img)  # contiguous 
 
-        return img0
+        img = torch.from_numpy(img).to(self.model.device)
+        img = img.float()  # uint8 to fp32
+        img /= 255  # 0 - 255 to 0.0 - 1.0
+        if len(img.shape) == 3:
+            img = img[None]  # expand for batch dim
+
+        for det in pred:  # per image
+                annotator = Annotator(origin_img, line_width=self.line_thickness, example=str(self.model.names))
+                if len(det):
+                    # Rescale boxes from img_size to im0 size
+                    det[:, :4] = scale_boxes(img.shape[2:], det[:, :4], origin_img.shape).round()
+                    
+                    # Write results
+                    for *xyxy, conf, cls in reversed(det):
+                        c = int(cls)  # integer class
+                        if label_opt:
+                            label = f'{self.model.names[c]} {conf:.2f}'
+                        else: 
+                            label = ''
+                        annotator.box_label(xyxy, label, color=colors(c, True))
+                        
+                # Stream results
+                result_img = annotator.result()
+
+        return result_img
 
