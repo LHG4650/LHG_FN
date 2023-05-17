@@ -10,9 +10,13 @@ try:
     from utils.general import check_img_size, non_max_suppression, scale_boxes
     from utils.torch_utils import select_device
     from utils.augmentations import letterbox
-except:
-    print('폴더 내 yolo 가 없는듯 합니다')
-
+except Exception as e:
+    print('Directory empty or')
+    print(e)
+    import sys
+    for i in sys.path:
+        print(i)
+        
 class HgYolo:
     def __init__(self, 
                 ptPath,         #pt 파일 경로
